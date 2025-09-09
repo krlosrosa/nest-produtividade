@@ -40,7 +40,7 @@ COPY --from=builder /app/prisma ./prisma
 ENV NODE_ENV=production
 
 # Expõe a porta padrão do NestJS
-EXPOSE 3000
+EXPOSE 5000
 
 # Comando para iniciar a aplicação
 CMD ["node", "dist/main"]
