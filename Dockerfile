@@ -9,17 +9,17 @@ RUN apk add --no-cache libc6-compat openssl
 # Copia os arquivos de dependência
 COPY package*.json ./
 
-# Instala dependências
+# Instala dependências com resolução de conflitos
 RUN npm install --legacy-peer-deps
-
 
 # Copia o restante do código
 COPY . .
 
-# Gera os artefatos do Prisma
+# Gera os artefatos do Prisma (Client)
+COPY prisma ./prisma
 RUN npx prisma generate
 
-# Compila o projeto
+# Compila o projeto NestJS
 RUN npm run build
 
 # Etapa 2: imagem final para produção
@@ -36,11 +36,11 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 
-# Define variáveis de ambiente (opcional)
+# Define variáveis de ambiente
 ENV NODE_ENV=production
 
-# Expõe a porta padrão do NestJS
-EXPOSE 3000
+# Gera novamente o Prisma Client no ambiente final
+RUN npx prisma generate
 
 # Comando para iniciar a aplicação
 CMD ["node", "dist/main"]
