@@ -18,7 +18,11 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { APP_PIPE } from '@nestjs/core';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { FastifyMulterModule } from '@nest-lab/fastify-multer';
-import { PrometheusModule } from '@willsoto/nestjs-prometheus';
+import {
+  PrometheusModule,
+  makeCounterProvider,
+  makeHistogramProvider,
+} from '@willsoto/nestjs-prometheus';
 
 @Module({
   imports: [
@@ -52,6 +56,17 @@ import { PrometheusModule } from '@willsoto/nestjs-prometheus';
       provide: APP_PIPE,
       useClass: ZodValidationPipe,
     },
+    makeCounterProvider({
+      name: 'http_requests_total',
+      help: 'Total de requisições HTTP',
+      labelNames: ['method', 'route', 'status'],
+    }),
+    makeHistogramProvider({
+      name: 'http_request_duration_seconds',
+      help: 'Duração das requisições HTTP em segundos',
+      labelNames: ['method', 'route', 'status'],
+      buckets: [0.1, 0.5, 1, 2, 5],
+    }),
   ],
 })
 export class AppModule {}
