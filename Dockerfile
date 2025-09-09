@@ -10,7 +10,8 @@ RUN apk add --no-cache libc6-compat openssl
 COPY package*.json ./
 
 # Instala dependências
-RUN npm install
+RUN npm install --legacy-peer-deps
+
 
 # Copia o restante do código
 COPY . .
