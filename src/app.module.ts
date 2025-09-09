@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './_shared/infra/prisma/prisma.module';
 import { join } from 'path';
@@ -44,6 +45,7 @@ import { PrometheusModule } from '@willsoto/nestjs-prometheus';
     TesteModule,
     DashboardModule,
   ],
+  controllers: [AppController],
   providers: [
     AppService,
     {
