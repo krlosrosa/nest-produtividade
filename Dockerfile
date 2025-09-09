@@ -33,7 +33,7 @@ COPY --from=builder /app/dist ./dist
 RUN npx prisma generate
 
 # Expõe a porta que sua aplicação usa
-EXPOSE 4000
+EXPOSE 5000
 
 # Comando para iniciar a aplicação
 CMD ["node", "dist/main"]
