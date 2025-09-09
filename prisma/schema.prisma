@@ -1,0 +1,335 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Center {
+  centerId                  String                     @id @unique
+  description               String
+  state                     String
+  cluster                   String                     @default("distribuicao")
+  configuracao              Configuracao[]
+  configuracaoImpressaoMapa ConfiguracaoImpressaoMapa?
+  dashboardProdutividadeCenter    DashboardProdutividadeCenter[]
+  dashboardProdutividadeUser    DashboardProdutividadeUser[]
+  demanda                   Demanda[]
+  pausaGeral                PausaGeral[]
+  transporte                Transporte[]
+  users                     User[]
+  assignedUsers             UserCenter[]
+}
+
+model ConfiguracaoImpressaoMapa {
+  id                   String            @id @default(cuid())
+  tipoImpressao        TipoImpressao
+  quebraPalete         Boolean           @default(false)
+  tipoQuebra           TipoQuebraPalete?
+  valorQuebra          Decimal?
+  separarPaleteFull    Boolean           @default(false)
+  separarUnidades      Boolean           @default(false)
+  exibirInfoCabecalho  Boolean           @default(true)
+  segregarFifo         String[]
+  ordemColunas         String[]
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  centerId             String            @unique
+  dataMaximaPercentual Int               @default(0)
+  dataMinimaPercentual Int               @default(0)
+  atribuidoPorId       String?
+  atribuidoPor         User?             @relation(fields: [atribuidoPorId], references: [id])
+  center               Center            @relation(fields: [centerId], references: [centerId])
+}
+
+model Configuracao {
+  id        Int     @id @default(autoincrement())
+  chave     String
+  valor     String
+  descricao String?
+  centerId  String?
+  center    Center? @relation(fields: [centerId], references: [centerId])
+
+  @@unique([chave, centerId])
+}
+
+model User {
+  id                        String                      @id
+  name                      String
+  password                  String?
+  centerId                  String
+  token                     String?
+  turno                     Turno                       @default(NOITE)
+  resetSenha                Boolean                     @default(true)
+  configuracaoImpressaoMapa ConfiguracaoImpressaoMapa[]
+  cortesMercadoria          CorteMercadoria[]
+  dashboardProdutividadeUser    DashboardProdutividadeUser[]
+  demandasCadastradas       Demanda[]                   @relation("CadastradoPor")
+  demandasFuncionario       Demanda[]                   @relation("Funcionario")
+  impressoesMapa            HistoricoImpressaoMapa[]
+  HistoricoStatusTransporte HistoricoStatusTransporte[]
+  paletes                   Palete[]
+  pausas                    Pausa[]
+  pausaGeral                PausaGeral[]
+  transporte                Transporte[]
+  center                    Center                      @relation(fields: [centerId], references: [centerId])
+  assignedCenters           UserCenter[]
+}
+
+model UserCenter {
+  userId     String
+  centerId   String
+  assignedAt DateTime @default(now())
+  processo   String   @default("EXPEDICAO")
+  role       Role     @default(FUNCIONARIO)
+  center     Center   @relation(fields: [centerId], references: [centerId])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@id([userId, centerId, processo])
+}
+
+model Transporte {
+  id                     Int                         @id @default(autoincrement())
+  numeroTransporte       String                      @unique
+  status                 StatusTransporte            @default(AGUARDANDO_SEPARACAO)
+  nomeRota               String
+  nomeTransportadora     String
+  placa                  String
+  criadoEm               DateTime                    @default(now())
+  atualizadoEm           DateTime                    @updatedAt
+  cadastradoPorId        String
+  dataExpedicao          DateTime                    @db.Timestamp(6)
+  centerId               String
+  obs                    String?
+  prioridade             Int                         @default(0)
+  cortesMercadoria       CorteMercadoria[]
+  historicoImpressaoMapa HistoricoImpressaoMapa[]
+  historicoStatus        HistoricoStatusTransporte[]
+  paletes                Palete[]
+  cadastradoPor          User                        @relation(fields: [cadastradoPorId], references: [id])
+  center                 Center                      @relation(fields: [centerId], references: [centerId])
+}
+
+model CorteMercadoria {
+  id            Int                   @id @default(autoincrement())
+  produto       String
+  lote          String
+  quantidade    Int
+  unidadeMedida String
+  motivo        MotivoCorteMercadoria
+  realizado     Boolean               @default(false)
+  criadoEm      DateTime              @default(now())
+  atualizadoEm  DateTime              @updatedAt
+  criadoPorId   String
+  transporteId  String
+  criadoPor     User                  @relation(fields: [criadoPorId], references: [id])
+  transporte    Transporte            @relation(fields: [transporteId], references: [numeroTransporte], onDelete: Cascade)
+}
+
+model Palete {
+  id                 String       @id
+  empresa            String
+  quantidadeCaixas   Int
+  quantidadeUnidades Int
+  quantidadePaletes  Int
+  enderecoVisitado   Int
+  segmento           String
+  transporteId       String
+  tipoProcesso       TipoProcesso @default(SEPARACAO)
+  criadoEm           DateTime     @default(now())
+  atualizadoEm       DateTime     @updatedAt
+  demandaId          Int?
+  status             StatusPalete @default(NAO_INICIADO)
+  validado           Boolean      @default(false)
+  criadoPorId        String
+  criadoPor          User         @relation(fields: [criadoPorId], references: [id])
+  demanda            Demanda?     @relation(fields: [demandaId], references: [id], onDelete: Cascade)
+  transporte         Transporte   @relation(fields: [transporteId], references: [numeroTransporte], onDelete: Cascade)
+}
+
+model Demanda {
+  id              Int           @id @default(autoincrement())
+  processo        TipoProcesso
+  inicio          DateTime
+  fim             DateTime?
+  status          StatusDemanda @default(EM_PROGRESSO)
+  cadastradoPorId String
+  turno           Turno
+  funcionarioId   String
+  criadoEm        DateTime      @default(now())
+  centerId        String
+  obs             String?
+  cadastradoPor   User          @relation("CadastradoPor", fields: [cadastradoPorId], references: [id])
+  center          Center        @relation(fields: [centerId], references: [centerId])
+  funcionario     User          @relation("Funcionario", fields: [funcionarioId], references: [id])
+  paletes         Palete[]
+  pausas          Pausa[]
+}
+
+model HistoricoStatusTransporte {
+  id            Int        @id @default(autoincrement())
+  alteradoEm    DateTime   @default(now())
+  tipoEvento    TipoEvento
+  descricao     String
+  transporteId  String
+  alteradoPorId String?
+  alteradoPor   User?      @relation(fields: [alteradoPorId], references: [id])
+  transporte    Transporte @relation(fields: [transporteId], references: [numeroTransporte], onDelete: Cascade)
+}
+
+model HistoricoImpressaoMapa {
+  id            Int          @id @default(autoincrement())
+  impressoEm    DateTime     @default(now())
+  transporteId  String
+  impressoPorId String
+  tipoImpressao TipoProcesso
+  impressoPor   User         @relation(fields: [impressoPorId], references: [id])
+  transporte    Transporte   @relation(fields: [transporteId], references: [numeroTransporte], onDelete: Cascade)
+}
+
+model Pausa {
+  id              Int         @id @default(autoincrement())
+  inicio          DateTime
+  fim             DateTime?
+  motivo          String?
+  descricao       String?
+  demandaId       Int
+  registradoPorId String
+  pausaGeralId    Int?
+  demanda         Demanda     @relation(fields: [demandaId], references: [id], onDelete: Cascade)
+  pausaGeral      PausaGeral? @relation(fields: [pausaGeralId], references: [id])
+  registradoPor   User        @relation(fields: [registradoPorId], references: [id])
+}
+
+model PausaGeral {
+  id              Int          @id @default(autoincrement())
+  inicio          DateTime
+  fim             DateTime?
+  motivo          String?
+  centerId        String
+  processo        TipoProcesso
+  turno           Turno
+  registradoPorId String
+  criadoEm        DateTime     @default(now())
+  atualizadoEm    DateTime     @updatedAt
+  pausas          Pausa[]
+  center          Center       @relation(fields: [centerId], references: [centerId])
+  registradoPor   User         @relation(fields: [registradoPorId], references: [id])
+}
+
+model DashboardProdutividadeUser {
+  id                    Int          @id @default(autoincrement())
+  dataRegistro          DateTime
+  centerId              String
+  funcionarioId         String
+  totalCaixas           Int
+  totalUnidades         Int
+  totalPaletes          Int
+  totalEnderecos        Int
+  totalPausasQuantidade Int
+  totalPausasTempo      Int
+  totalTempoTrabalhado  Int
+  totalDemandas         Int
+  processo              TipoProcesso
+  turno                 Turno
+  criadoEm              DateTime     @default(now())
+  atualizadoEm          DateTime     @updatedAt
+  center                Center       @relation(fields: [centerId], references: [centerId])
+  funcionario           User         @relation(fields: [funcionarioId], references: [id])
+
+  @@unique([funcionarioId, centerId, processo, dataRegistro, turno])
+}
+
+model DashboardProdutividadeCenter {
+  id                    Int          @id @default(autoincrement())
+  dataRegistro          DateTime
+  centerId              String
+  totalCaixas           Int
+  totalUnidades         Int
+  totalPaletes          Int
+  totalEnderecos        Int
+  totalPausasQuantidade Int
+  totalPausasTempo      Int
+  totalTempoTrabalhado  Int
+  totalDemandas         Int
+  processo              TipoProcesso
+  turno                 Turno
+  criadoEm              DateTime     @default(now())
+  atualizadoEm          DateTime     @updatedAt
+  center                Center       @relation(fields: [centerId], references: [centerId])
+
+  @@unique([centerId, processo, dataRegistro, turno])
+}
+
+
+
+enum StatusTransporte {
+  AGUARDANDO_SEPARACAO
+  EM_SEPARACAO
+  SEPARACAO_CONCLUIDA
+  EM_CONFERENCIA
+  CONFERENCIA_CONCLUIDA
+  EM_CARREGAMENTO
+  CARREGAMENTO_CONCLUIDO
+  FATURADO
+  LIBERADO_PORTARIA
+  CANCELADO
+}
+
+enum StatusPalete {
+  NAO_INICIADO
+  EM_PROGRESSO
+  CONCLUIDO
+  EM_PAUSA
+}
+
+enum TipoProcesso {
+  SEPARACAO
+  CARREGAMENTO
+  CONFERENCIA
+}
+
+enum StatusDemanda {
+  EM_PROGRESSO
+  FINALIZADA
+  PAUSA
+  CANCELADA
+}
+
+enum Role {
+  FUNCIONARIO
+  USER
+  ADMIN
+  MASTER
+}
+
+enum Turno {
+  MANHA
+  TARDE
+  NOITE
+}
+
+enum TipoImpressao {
+  TRANSPORTE
+  CLIENTE
+}
+
+enum TipoQuebraPalete {
+  LINHAS
+  PERCENTUAL
+}
+
+enum TipoEvento {
+  CRIACAO_TRANSPORTE
+  ATRIBUICAO_PALLET
+  FINALIZACAO_DEMANDA
+  LIBERACAO_CONFERENCIA
+  OUTRO
+}
+
+enum MotivoCorteMercadoria {
+  FALTA_MERCADORIA
+  FALTA_ESPACO
+}
