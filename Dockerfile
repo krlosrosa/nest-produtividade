@@ -1,46 +1,39 @@
-# Etapa 1: build da aplicação
-FROM node:18-alpine AS builder
+# Estágio de construção
+FROM node:22-alpine AS builder
 
+# Cria e define o diretório de trabalho
 WORKDIR /app
 
-# Instala dependências do sistema necessárias para Prisma
-RUN apk add --no-cache libc6-compat openssl
-
-# Copia os arquivos de dependência
+# Copia os arquivos de definição de dependências
 COPY package*.json ./
+COPY prisma ./prisma/
 
-# Instala dependências com resolução de conflitos
+# Instala as dependências com --legacy-peer-deps para resolver conflitos
 RUN npm install --legacy-peer-deps
 
-# Copia o restante do código
+# Copia todo o código fonte
 COPY . .
 
-# Gera os artefatos do Prisma (Client)
-COPY prisma ./prisma
+# Gera o cliente do Prisma e faz o build da aplicação
 RUN npx prisma generate
-
-# Compila o projeto NestJS
 RUN npm run build
 
-# Etapa 2: imagem final para produção
-FROM node:18-alpine
+# Estágio de produção
+FROM node:22-alpine
 
 WORKDIR /app
 
-# Instala dependências do sistema necessárias para Prisma Client
-RUN apk add --no-cache libc6-compat openssl
-
-# Copia apenas os arquivos necessários da etapa de build
-COPY --from=builder /app/package*.json ./
+# Copia apenas os arquivos necessários para produção
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/dist ./dist
 
-# Define variáveis de ambiente
-ENV NODE_ENV=production
-
-# Gera novamente o Prisma Client no ambiente final
+# Gera o cliente do Prisma novamente (apenas para garantir)
 RUN npx prisma generate
 
+# Expõe a porta que sua aplicação usa
+EXPOSE 4000
+
 # Comando para iniciar a aplicação
-CMD ["node", "dist/main"]
+CMD ["npm", "start"]
